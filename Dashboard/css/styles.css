@@ -1,7 +1,10 @@
 ﻿.server-indicator {
-    border: solid 8px;
-    width: 16px;
-    vertical-align: middle;
+    display: inline-block;
+    border: 1px solid #ccc;
+    border-radius: 50%;
+    width: 1.1em;
+    height: 1.1em;
+    vertical-align: text-top;
 }
 
 g .area {
@@ -20,11 +23,20 @@ g .area {
 
 .detail_swatch {
     display: inline-block;
-    width: 10px;
-    height: 10px;
+    border: 1px solid #ccc;
+    border-radius: 50%;
+    width: 1em;
+    height: 1em;
+    vertical-align: text-top;
     margin: 0 4px 0 0
 }
 
 .rickshaw_graph .detail .date {
     color: #a0a0a0
+}
+
+.rickshaw_graph .detail .value {
+    display: block;
+    font-size: 1.5em;
+    text-align: right;
 }

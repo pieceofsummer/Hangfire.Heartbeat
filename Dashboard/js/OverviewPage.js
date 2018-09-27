@@ -10,8 +10,11 @@ var viewModel = new UtilizationViewModel();
 
 // UPDATER
 var updater = function (cpuGraph, memGraph) {
-    $.get($("#heartbeatConfig").data("pollurl"),
-        function (data) {
+    var config = $("#heartbeatConfig"),
+        timeout = config.data("pollinterval");
+
+    (function cb() {
+        $.get(config.data("pollurl"), function (data) {
             var cpuGraphData = {};
             var memGraphData = {};
             var newServerViews = [];
@@ -28,6 +31,10 @@ var updater = function (cpuGraph, memGraph) {
 
                 cpuGraphData[name] = current.cpuUsagePercentage;
                 memGraphData[name] = current.workingMemorySet;
+                
+                // add data series items if needed
+                addServerItem(cpuGraph.series, name, current.displayName);
+                addServerItem(memGraph.series, name, current.displayName);
             }
 
             cpuGraph.series.addData(cpuGraphData);
@@ -37,19 +44,29 @@ var updater = function (cpuGraph, memGraph) {
             memGraph.update();
 
             viewModel.servers(newServerViews);
+
+            // set configured timeout on success
+            timeout = config.data("pollinterval");
+        }).fail(function () {
+            // incremental back-off on failure
+            timeout = Math.min(timeout * 1.5, 30000);
+        }).always(function () {
+            setTimeout(cb, timeout);
         });
+    })();
 };
 
 var createGraph = function (elementName, yAxisConfig) {
     var graph = new Rickshaw.Graph({
         element: document.getElementById(elementName),
-        height: 400,
+        height: 300,
         renderer: 'area',
         interpolation: 'cardinal',
         unstack: true,
         stroke: true,
+        padding: { top: 0.2, left: 0, right: 0, bottom: 0.2 },
         series: new Rickshaw.Series.FixedDuration([{ name: "__STUB" }],
-            "cool",
+            { scheme: 'cool' },
             {
                 timeInterval: 1000,
                 maxDataPoints: 60
@@ -68,6 +85,7 @@ var createGraph = function (elementName, yAxisConfig) {
     var yAxis = yAxisConfig(graph);
     yAxis.render();
 
+    $.data(graph.element, 'graph', graph);
     return graph;
 };
 
@@ -77,7 +95,7 @@ var getServerView = function (name, current) {
         function (s) { return s.name === name; });
 
     var cpuUsage = numeral(current.cpuUsagePercentage).format('0.0') + '%';
-    var ramUsage = numeral(current.workingMemorySet).format('0.00b');
+    var ramUsage = numeral(current.workingMemorySet).format('0.00ib');
 
     if (server == null) {
         server = {
@@ -103,11 +121,18 @@ var getColor = function (name, graphSeries) {
     var series = ko.utils.arrayFirst(graphSeries,
         function (s) { return s.name === name; });
 
-    return series != null ? series.color : "#000000";
+    return series != null ? series.color : "transparent";
 };
 
 var formatDate = function (unixSeconds) {
     return moment(unixSeconds * 1000).format("H:mm:ss");
+};
+
+var addServerItem = function (series, name, title) {
+    var item = series.itemByName(name);
+    if (item) return;
+    
+    series.addItem({ name: name, title: title });
 };
 
 // INITIALIZATION
@@ -126,7 +151,7 @@ window.onload = function () {
         function (graph) {
             return new Rickshaw.Graph.Axis.Y({
                 graph: graph,
-                tickFormat: function (y) { return y !== 0 ? numeral(y).format('0b') : ''; },
+                tickFormat: function (y) { return y !== 0 ? numeral(y).format('0.0ib') : ''; },
                 ticksTreatment: 'glow'
             });
         });
@@ -138,7 +163,7 @@ window.onload = function () {
             if (series.name === "__STUB") return date;
 
             var swatch = '<span class="detail_swatch" style="background-color: ' + series.color + '"></span>';
-            var content = swatch + series.name + ": " + numeral(y).format('0.00') + '%' + '<br>' + date;
+            var content = swatch + series.title + ': <span class="value">' + numeral(y).format('0.0') + '%</span>';
             return content;
         }
     });
@@ -150,12 +175,29 @@ window.onload = function () {
             if (series.name === "__STUB") return date;
 
             var swatch = '<span class="detail_swatch" style="background-color: ' + series.color + '"></span>';
-            var content = swatch + series.name + ": " + numeral(y).format('0.00b') + '<br>' + date;
+            var content = swatch + series.title + ': <span class="value">' + numeral(y).format('0.00ib') + '</span>';
             return content;
         }
     });
 
     updater(cpuGraph, memGraph);
-    setInterval(function () { updater(cpuGraph, memGraph); }, $("#heartbeatConfig").data("pollinterval"));
     ko.applyBindings(viewModel);
+    
+    $(window).on("resize", function () {
+        $(".rickshaw_graph").each(function () {
+            var container = $(this),
+                graph = container.data('graph');
+            
+            if (graph) {
+                var width = container.width(),
+                    height = container.height();
+                
+                if (graph.width !== width || graph.height !== height) {
+                    // container size has changed, update graph size
+                    graph.setSize({ width: width, height: height });
+                    graph.update();
+                }
+            }
+        });
+    });
 };

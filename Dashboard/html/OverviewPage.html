@@ -3,23 +3,33 @@
 <script type="text/javascript" src="heartbeat/jsnumeral"></script>
 <script type="text/javascript" src="heartbeat/jspage"></script>
 
-<div class="col-md-12">
-    <div class="row">
-        <div class="col-md-6">
-            <h3>CPU</h3>
-            <div id="cpu-chart"></div>
-        </div>
-        <div class="col-md-6">
-            <h3>RAM</h3>
-            <div id="mem-chart"></div>
-        </div>
+<div class="row">
+    <div class="col-md-12">
+        <h1 class="page-header">Heartbeat</h1>
     </div>
-    <div class="row">
+    <div class="col-md-6">
+        <h3>CPU</h3>
+        <div id="cpu-chart"></div>
+    </div>
+    <div class="col-md-6">
+        <h3>RAM</h3>
+        <div id="mem-chart"></div>
+    </div>
+    <div class="col-md-12" style="margin-top: 30px">
         <div class="table-responsive">
             <table class="table">
+                <colgroup>
+                    <col style="width: 32px" />
+                    <col />
+                    <col style="width: 80px" />
+                    <col />
+                    <col style="width: 80px" />
+                    <col style="width: 80px" />
+                </colgroup>
+                
                 <thead>
                     <tr>
-                        <th style="width: 16px"></th>
+                        <th></th>
                         <th>Server</th>
                         <th>PID</th>
                         <th>Exec name</th>
@@ -30,7 +40,7 @@
 
                 <tbody data-bind="foreach: servers.sort(function (l, r) { return (l.name == r.name) ? 0 : (l.name > r.name ? -1 : 1) })">
                     <tr>
-                        <td><div data-bind="style: { 'border-color': displayColor }" class="server-indicator"></div></td>
+                        <td><div data-bind="style: { 'background-color': displayColor }" class="server-indicator"></div></td>
                         <td data-bind="text: displayName"></td>
                         <td data-bind="text: processId"></td>
                         <td data-bind="text: processName"></td>
