@@ -10,7 +10,7 @@ using static Hangfire.Heartbeat.Constants;
 
 namespace Hangfire.Heartbeat.Dashboard
 {
-    public class UtilizationJsonDispatcher : IDashboardDispatcher
+    internal class UtilizationJsonDispatcher : IDashboardDispatcher
     {
         private static readonly JsonSerializerSettings JsonSerializerSettings = new JsonSerializerSettings
         {

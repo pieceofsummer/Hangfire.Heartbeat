@@ -18,8 +18,15 @@ namespace Hangfire.Heartbeat.Server
         private readonly int _processorCount;
         private readonly TimeSpan _expireIn;
 
+        public SystemMonitor() : this(TimeSpan.Zero)
+        {
+        }
+            
         public SystemMonitor(TimeSpan checkInterval)
         {
+            if (checkInterval < TimeSpan.Zero)
+                throw new ArgumentOutOfRangeException(nameof(checkInterval));
+
             _currentProcess = Process.GetCurrentProcess();
             _checkInterval = checkInterval;
             _expireIn = _checkInterval + TimeSpan.FromMinutes(1);
@@ -32,6 +39,7 @@ namespace Hangfire.Heartbeat.Server
             if (context.IsShutdownRequested)
             {
                 CleanupState(context, connection);
+                return;
             }
 
             var cpuPercentUsage = ComputeCpuUsage();
