@@ -1,7 +1,6 @@
 ﻿using System;
 using Hangfire.Dashboard;
 using Hangfire.Dashboard.Pages;
-using static Hangfire.Heartbeat.Constants;
 
 namespace Hangfire.Heartbeat.Dashboard
 {
@@ -13,7 +12,6 @@ namespace Hangfire.Heartbeat.Dashboard
         private static readonly string PageHtml;
 
         private readonly HeartbeatPageOptions _options;
-        private readonly string _config;
 
         static OverviewPage()
         {
@@ -23,22 +21,22 @@ namespace Hangfire.Heartbeat.Dashboard
         public OverviewPage(HeartbeatPageOptions options)
         {
             _options = options ?? throw new ArgumentNullException(nameof(options));
-            _config = $"<div id=\"heartbeatConfig\" data-pollinterval=\"{_options.StatsPollingInterval}\" data-pollurl=\"{StatsRoute}\"></div>";
         }
 
         public override void Execute()
         {
-            WriteEmptyLine();
             Layout = new LayoutPage(_options.Title);
-            WriteLiteralLine(PageHtml);
+            
+            // write static html content
+            WriteLiteral(PageHtml);
             WriteEmptyLine();
-        }
-
-        private void WriteLiteralLine(string textToAppend)
-        {
-            WriteLiteral(textToAppend);
-            WriteLiteral(_config);
-            WriteLiteral("\r\n");
+            
+            // write configuration element
+            WriteLiteral("<div id=\"heartbeatConfig\" data-pollinterval=\"");
+            Write(_options.StatsPollingInterval);
+            WriteLiteral("\" data-pollurl=\"");
+            Write(Url.To(StatsRoute));
+            WriteLiteral("\"></div>");
         }
 
         private void WriteEmptyLine()
