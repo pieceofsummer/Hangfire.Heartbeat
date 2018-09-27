@@ -7,12 +7,12 @@ namespace Hangfire.Heartbeat.Dashboard
 {
     internal class OverviewPage : RazorPage
     {
-        public const string Title = "Heartbeat";
         public const string PageRoute = "/heartbeat";
         public const string StatsRoute = "/heartbeat/stats";
 
         private static readonly string PageHtml;
 
+        private readonly HeartbeatPageOptions _options;
         private readonly string _config;
 
         static OverviewPage()
@@ -20,15 +20,16 @@ namespace Hangfire.Heartbeat.Dashboard
             PageHtml = Utils.ReadStringResource("Hangfire.Heartbeat.Dashboard.html.OverviewPage.html");
         }
 
-        public OverviewPage(TimeSpan checkInterval)
+        public OverviewPage(HeartbeatPageOptions options)
         {
-            _config = $"<div id=\"heartbeatConfig\" data-pollinterval=\"{checkInterval.TotalMilliseconds + WaitMilliseconds}\" data-pollurl=\"{StatsRoute}\"></div>";
+            _options = options ?? throw new ArgumentNullException(nameof(options));
+            _config = $"<div id=\"heartbeatConfig\" data-pollinterval=\"{_options.StatsPollingInterval}\" data-pollurl=\"{StatsRoute}\"></div>";
         }
 
         public override void Execute()
         {
             WriteEmptyLine();
-            Layout = new LayoutPage(Title);
+            Layout = new LayoutPage(_options.Title);
             WriteLiteralLine(PageHtml);
             WriteEmptyLine();
         }

@@ -7,16 +7,33 @@ namespace Hangfire.Heartbeat
 {
     public static class ConfigurationExtensions
     {
-        [PublicAPI]
+        [PublicAPI, Obsolete("Deprecated. Use UseHeartbeatPage(HeartbeatPageOptions) instead.")]
         public static IGlobalConfiguration UseHeartbeatPage(this IGlobalConfiguration config, TimeSpan checkInterval)
         {
-            DashboardRoutes.Routes.AddRazorPage(OverviewPage.PageRoute, x => new OverviewPage(checkInterval));
-            NavigationMenu.Items.Add(page => new MenuItem(OverviewPage.Title, page.Url.To(OverviewPage.PageRoute))
+            return UseHeartbeatPage(config, new HeartbeatPageOptions()
+            {
+                // preserve original formula for legacy method
+                StatsPollingInterval = (int)checkInterval.TotalMilliseconds + Constants.WaitMilliseconds
+            });
+        }
+
+        [PublicAPI]
+        public static IGlobalConfiguration UseHeartbeatPage(this IGlobalConfiguration config, HeartbeatPageOptions options = null)
+        {
+            if (config == null)
+                throw new ArgumentNullException(nameof(config));
+
+            options = options ?? new HeartbeatPageOptions();
+            
+            DashboardRoutes.Routes.Add(OverviewPage.StatsRoute, new UtilizationJsonDispatcher());
+            
+            DashboardRoutes.Routes.AddRazorPage(OverviewPage.PageRoute, x => new OverviewPage(options));
+            
+            NavigationMenu.Items.Add(page => new MenuItem(options.Title, page.Url.To(OverviewPage.PageRoute))
             {
                 Active = page.RequestPath.StartsWith(OverviewPage.PageRoute)
             });
-            DashboardRoutes.Routes.Add(OverviewPage.StatsRoute, new UtilizationJsonDispatcher());
-
+            
             DashboardRoutes.Routes.Add(
                 "/heartbeat/jsknockout",
                 new ContentDispatcher("application/js", "Hangfire.Heartbeat.Dashboard.js.knockout-3.4.2.js",
