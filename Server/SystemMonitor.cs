@@ -11,7 +11,7 @@ using static Hangfire.Heartbeat.Constants;
 namespace Hangfire.Heartbeat.Server
 {
     [PublicAPI]
-    public sealed class SystemMonitor : IBackgroundProcess
+    public sealed class SystemMonitor : IBackgroundProcess, IDisposable
     {
         private readonly Process _currentProcess;
         private readonly TimeSpan _checkInterval;
@@ -35,19 +35,16 @@ namespace Hangfire.Heartbeat.Server
 
         public void Execute(BackgroundProcessContext context)
         {
-            var connection = context.Storage.GetConnection();
-            if (context.IsShutdownRequested)
+            using (var connection = context.Storage.GetConnection())
             {
-                CleanupState(context, connection);
-                return;
-            }
+                var cpuPercentUsage = ComputeCpuUsage(context.CancellationToken);
 
-            var cpuPercentUsage = ComputeCpuUsage();
-
-            using (var writeTransaction = connection.CreateWriteTransaction())
-            {
-                var key = Utils.FormatKey(context.ServerId);
-
+                if (context.IsShutdownRequested)
+                {
+                    CleanupState(context, connection);
+                    return;
+                }
+                
                 var values = new Dictionary<string, string>
                 {
                     [ProcessId] = _currentProcess.Id.ToString(CultureInfo.InvariantCulture),
@@ -56,16 +53,21 @@ namespace Hangfire.Heartbeat.Server
                     [WorkingSet] = _currentProcess.WorkingSet64.ToString(CultureInfo.InvariantCulture),
                     [Timestamp] = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture)
                 };
-
-                writeTransaction.SetRangeInHash(key, values);
-
-                // if storage supports manual expiration handling
-                if (writeTransaction is JobStorageTransaction jsTransaction)
+                
+                using (var transaction = connection.CreateWriteTransaction())
                 {
-                    jsTransaction.ExpireHash(key, _expireIn);
-                }
+                    var hashKey = Utils.FormatKey(context.ServerId);
 
-                writeTransaction.Commit();
+                    transaction.SetRangeInHash(hashKey, values);
+
+                    if (transaction is JobStorageTransaction jobStorageTransaction)
+                    {
+                        // set expiration (if supported by storage)
+                        jobStorageTransaction.ExpireHash(hashKey, _expireIn);
+                    }
+
+                    transaction.Commit();
+                }
             }
 
             if (_checkInterval != TimeSpan.Zero)
@@ -73,11 +75,17 @@ namespace Hangfire.Heartbeat.Server
                 context.Wait(_checkInterval);
             }
         }
-
-        private int ComputeCpuUsage()
+        
+        private int ComputeCpuUsage(CancellationToken cancellationToken)
         {
             var current = _currentProcess.TotalProcessorTime;
-            Thread.Sleep(WaitMilliseconds);
+
+            if (cancellationToken.WaitHandle.WaitOne(WaitMilliseconds))
+            {
+                // cancel wait on server shutdown
+                return 0;
+            }
+            
             _currentProcess.Refresh();
             var next = _currentProcess.TotalProcessorTime;
 
@@ -90,9 +98,11 @@ namespace Hangfire.Heartbeat.Server
         {
             using (var transaction = connection.CreateWriteTransaction())
             {
-                transaction.RemoveHash(context.ServerId);
+                transaction.RemoveHash(Utils.FormatKey(context.ServerId));
                 transaction.Commit();
             }
         }
+
+        public void Dispose() => _currentProcess.Dispose();
     }
 }
